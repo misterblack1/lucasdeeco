@@ -1,4 +1,6 @@
-## Lucas Deeco Terminal Information
+## Lucas Deeco Terminal Information 
+
+High resolution photos and ROM dumps: [https://archive.org/details/lucas-deeco-seal-touch](https://archive.org/details/lucas-deeco-seal-touch)
 
 CPU: 80186 with 16 bit data bus
 

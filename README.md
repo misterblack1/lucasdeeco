@@ -47,3 +47,7 @@ Example from the start of hte ROM:
 ```
 ..}.RIGHCOPYT (C) DIL ELGITAECTRONICS CORPORATION 1986-...1......IM..............................*M............................................T.......t.......). .+.....U.V.....4`.;................t40u........&.=.................@.u.....$.....#u...........
 ```
+
+I have included two sample files, 128 byte selection HI.bin and 128 byte selection LO.bin. Run them through the included `bit swapper.html` file and search for `CONFIGURATION BY STATE MEMORY`.
+
+This will result in all the combinations of address lines that decode that string. (Scroll down once the search is done.) 

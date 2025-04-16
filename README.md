@@ -51,7 +51,7 @@ A3,6,5,0,1,2,4 (next 32 bytes look correct)
 ..}.RIGHCOPYT (C) DIL ELGITAECTRONICS CORPORATION 1986-...1......IM..............................*M............................................T.......t.......). .+.....U.V.....4`.;................t40u........&.=.................@.u.....$.....#u...........
 ```
 
-The computer string is `COPYRIGHT (C) DIGITAL ELECTRONICS CORPORATION 1986`.
+The complete string is `COPYRIGHT (C) DIGITAL ELECTRONICS CORPORATION 1986` but crosses the boundary so requires two keys to decode entirely.
 
 I have included two sample files extracted from the ROM on the 256 byte boundary, 128 byte selection HI.bin and 128 byte selection LO.bin. Run them through the included `bit swapper.html` program and search for `CONFIGURATION BY STATE MEMORY`. This will give you an example of human readable text that is now visible once descrambled. 
 

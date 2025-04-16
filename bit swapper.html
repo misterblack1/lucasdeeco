@@ -75,16 +75,41 @@
             font-size: 12px;
             color: black;
         }
+        #matchingMappingsList {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            display: none;
+        }
+        #matchingMappingsList h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        #matchingMappingsList ol {
+            list-style-type: decimal;
+            padding-left: 20px;
+        }
+        #matchingMappingsList ol li {
+            margin-bottom: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #0078d7; /* Make it look like a link */
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        #matchingMappingsList ol li:hover {
+            color: #005a9e; /* Darker blue on hover */
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>ROM Address Scrambler and Byte Merger (16-bit)</h1>
 
-        <label for="file1">Select First ROM File (e.g., low bytes):</label>
+        <label for="file1">Select First ROM File (e.g., high bytes):</label>
         <input type="file" id="file1">
 
-        <label for="file2">Select Second ROM File (e.g., high bytes):</label>
+        <label for="file2">Select Second ROM File (e.g., low bytes):</label>
         <input type="file" id="file2">
 
         <div>
@@ -121,6 +146,10 @@
             <div id="progressBarFill"></div>
             <div id="progressBarLabel">0 / 0</div>
         </div>
+        <div id="matchingMappingsList">
+            <h3>Matching Address Line Mappings:</h3>
+            <ol></ol>
+        </div>
     </div>
 
     <script>
@@ -132,6 +161,7 @@
         let outputFileName = "merged_unscrambled.bin";
         let isSearching = false;
         let findButton;
+        let searchTextElement;
         let feedbackElement;
         let progressBar;
         let progressBarFill;
@@ -139,6 +169,11 @@
         let numPermutations = 0;
         let permutationsSearched = 0;
         let intervalId; // To store the interval ID for clearing
+        let allMappings = []; // To store all generated mappings
+        let currentMappingIndex = 0; // To track the current mapping being searched
+        let foundMatch = false;
+        let matchingMappings = [];
+        let matchingMappingsList;
 
         document.getElementById('file1').addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -235,7 +270,8 @@
                 }
             }
 
-            displayOutput();
+           displayOutput();
+
         }
 
         function displayOutput() {
@@ -322,7 +358,7 @@
                 return;
             }
 
-            const searchText = document.getElementById('searchText').value;
+            const searchText = searchTextElement.value;
             if (!searchText) {
                 alert("Please enter the text to search for.");
                 return;
@@ -337,6 +373,12 @@
             permutationsSearched = 0;
             progressBarFill.style.width = '0%';
             progressBarLabel.textContent = '0 / ' + numPermutations;
+            currentMappingIndex = 0;
+            foundMatch = false;
+            matchingMappings = [];
+            matchingMappingsList.innerHTML = '<h3>Matching Address Line Mappings:</h3><ol></ol>'; // Clear previous results
+            matchingMappingsList.style.display = 'none'; // Hide the list initially
+
 
             const numBytes = file1Data.length;
             const numAddressLines = Math.ceil(Math.log2(numBytes));
@@ -345,41 +387,57 @@
                 addressOrder.push(i);
             }
 
-            let allMappings = generatePermutations(addressOrder);
+            allMappings = generatePermutations(addressOrder);
             numPermutations = allMappings.length;
             progressBarLabel.textContent = '0 / ' + numPermutations;
 
 
             intervalId = setInterval(() => {
-                if (permutationsSearched < allMappings.length) {
-                    document.getElementById('addressMapping').value = allMappings[permutationsSearched].join(',');
+                if (currentMappingIndex < allMappings.length) {
+                    document.getElementById('addressMapping').value = allMappings[currentMappingIndex].join(',');
                     processROMs();
                     permutationsSearched++;
                     const asciiText = document.getElementById('asciiOutputText').value.toUpperCase();
                     if (asciiText.includes(searchText.toUpperCase())) {
-                        clearInterval(intervalId);
-                        intervalId = null;
-                        alert("Found it!");
-                        isSearching = false;
-                        findButton.disabled = false;
-                        findButton.textContent = "Find Text";
-                        feedbackElement.textContent = "";
-                        return; // Exit the function
+                        foundMatch = true;
+                        matchingMappings.push(allMappings[currentMappingIndex].join(','));
                     }
                     let progress = (permutationsSearched / numPermutations) * 100;
                     progressBarFill.style.width = progress + '%';
                     progressBarLabel.textContent = permutationsSearched + ' / ' + numPermutations;
+                    currentMappingIndex++;
                 } else {
                     clearInterval(intervalId);
-                    intervalId = null;
-                    alert("Not found!");
+                    intervalId = null; // Clear interval
                     isSearching = false;
                     findButton.disabled = false;
-                    findButton.textContent = "Find Text";
-                    feedbackElement.textContent = "";
+                    findButton.textContent = "Search Again";
+                    feedbackElement.textContent = "Search complete.";
+                    if (foundMatch) {
+                        displayMatchingMappings();
+                    } else {
+                        alert("Text not found in any permutation.");
+                    }
                 }
             }, 0);
         }
+
+        function displayMatchingMappings() {
+            if (matchingMappings.length > 0) {
+                matchingMappingsList.style.display = 'block';
+                let listContent = '';
+                matchingMappings.forEach(mapping => {
+                    listContent += `<li onclick="processAndMergeWithMapping('${mapping}')">${mapping}</li>`;
+                });
+                matchingMappingsList.querySelector('ol').innerHTML = listContent;
+            }
+        }
+
+        function processAndMergeWithMapping(mappingString) {
+            document.getElementById('addressMapping').value = mappingString;
+            processROMs();
+        }
+
 
         function generatePermutations(arr) {
             const permutations = [];
@@ -400,10 +458,12 @@
 
         window.onload = function() {
             findButton = document.getElementById('findButton');
+            searchTextElement = document.getElementById('searchText');
             feedbackElement = document.getElementById('feedback');
             progressBar = document.getElementById('progressBar');
             progressBarFill = document.getElementById('progressBarFill');
             progressBarLabel = document.getElementById('progressBarLabel');
+            matchingMappingsList = document.getElementById('matchingMappingsList');
         };
 
         document.getElementById('file1').addEventListener('change', () => {

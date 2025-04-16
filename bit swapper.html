@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ROM Address Scrambler and Byte Merger (16-bit)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="file"],
+        button {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+        .output-section {
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        #findButton {
+            background-color: #4CAF50; /* Green */
+            color: white;
+            padding: 10px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border: none;
+        }
+        #findButton:disabled {
+            background-color: #cccccc; /* Gray */
+            cursor: not-allowed;
+        }
+        #feedback {
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #1a5296; /* A shade of blue */
+        }
+        #progressBar {
+            width: 100%;
+            height: 20px;
+            background-color: #ddd;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            overflow: hidden; /* Ensure the progress bar stays within its container */
+        }
+        #progressBarFill {
+            height: 100%;
+            background-color: #4CAF50; /* Green */
+            width: 0%; /* Start with 0% */
+            transition: width 0.1s ease; /* Smooth transition for the filling effect */
+            border-radius: 5px; /* Ensure rounded corners on the filled part too */
+        }
+        #progressBarLabel {
+            text-align: center;
+            line-height: 20px; /* Vertically center the text */
+            font-size: 12px;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ROM Address Scrambler and Byte Merger (16-bit)</h1>
+
+        <label for="file1">Select First ROM File (e.g., low bytes):</label>
+        <input type="file" id="file1">
+
+        <label for="file2">Select Second ROM File (e.g., high bytes):</label>
+        <input type="file" id="file2">
+
+        <div>
+            <h2>Address Line Mapping</h2>
+            <p>Enter the new order of the address lines. For example, if the original address lines were A0, A1, A2, and you want to swap A0 and A2, enter "2,1,0". The numbers correspond to the original address line index (starting from 0 for the least significant bit).</p>
+            <label for="addressMapping">New Address Line Order (comma-separated):</label>
+            <input type="text" id="addressMapping" placeholder="e.g., 2,1,0">
+        </div>
+
+        <div>
+            <label for="searchText">Enter text to search for:</label>
+            <input type="text" id="searchText" placeholder="e.g., COPYRIGHT (C)">
+        </div>
+
+        <button onclick="processROMs()">Process and Merge ROMs</button>
+        <button onclick="randomizeAndProcess()">Randomize and Process</button>
+        <button id="findButton" onclick="findCopyright()">Find Text</button>
+
+        <h2>Output</h2>
+        <div class="output-section">
+            <label for="hexOutputText">Processed and Merged ROM Data (Hex):</label>
+            <textarea id="hexOutputText" readonly placeholder="Processed and merged ROM data (Hex) will appear here."></textarea>
+        </div>
+
+        <div class="output-section">
+            <label for="asciiOutputText">Processed and Merged ROM Data (ASCII):</label>
+            <textarea id="asciiOutputText" readonly placeholder="Processed and merged ROM data (ASCII) will appear here."></textarea>
+        </div>
+
+        <button onclick="downloadFile()">Download Merged Output File</button>
+
+        <div id="feedback">Searching...</div>
+        <div id="progressBar">
+            <div id="progressBarFill"></div>
+            <div id="progressBarLabel">0 / 0</div>
+        </div>
+    </div>
+
+    <script>
+        let file1Data = null;
+        let file2Data = null;
+        let file1FileName = "";
+        let file2FileName = "";
+        let mergedRomData = null;
+        let outputFileName = "merged_unscrambled.bin";
+        let isSearching = false;
+        let findButton;
+        let feedbackElement;
+        let progressBar;
+        let progressBarFill;
+        let progressBarLabel;
+        let numPermutations = 0;
+        let permutationsSearched = 0;
+        let intervalId; // To store the interval ID for clearing
+
+        document.getElementById('file1').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                file1FileName = file.name;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    file1Data = new Uint8Array(e.target.result);
+                    console.log(`File 1 "${file1FileName}" loaded. Size: ${file1Data.length} bytes.`);
+                    checkFileSizes();
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                file1Data = null;
+                file1FileName = "";
+            }
+        });
+
+        document.getElementById('file2').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                file2FileName = file.name;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    file2Data = new Uint8Array(e.target.result);
+                    console.log(`File 2 "${file2FileName}" loaded. Size: ${file2Data.length} bytes.`);
+                    checkFileSizes();
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                file2Data = null;
+                file2FileName = "";
+            }
+        });
+
+        function checkFileSizes() {
+            if (file1Data && file2Data && file1Data.length !== file2Data.length) {
+                alert("Error: The two ROM files have different sizes. Please ensure they are from the same memory region.");
+                file1Data = null;
+                file2Data = null;
+            }
+        }
+
+        function processROMs() {
+            if (!file1Data || !file2Data) {
+                alert("Please select both ROM files.");
+                return;
+            }
+
+            const mappingInput = document.getElementById('addressMapping').value;
+            const mapping = mappingInput.split(',').map(Number);
+            const numBytes = file1Data.length;
+            const numAddressLines = Math.ceil(Math.log2(numBytes));
+
+            if (!mapping || mapping.length === 0) {
+                alert("Please enter the new address line order.");
+                return;
+            }
+
+            if (mapping.length !== numAddressLines) {
+                alert(`The number of mappings (${mapping.length}) does not match the number of address lines in the ROMs (${numAddressLines}).`);
+                return;
+            }
+            if (new Set(mapping).size !== mapping.length || Math.max(...mapping) >= numAddressLines || Math.min(...mapping) < 0) {
+                alert("Invalid address line mapping. Ensure each original address line index (0 to N-1) appears exactly once.");
+                return;
+            }
+
+            const unscrambledByte1 = new Uint8Array(numBytes);
+            const unscrambledByte2 = new Uint8Array(numBytes);
+            mergedRomData = new Uint16Array(numBytes);
+
+            for (let i = 0; i < numBytes; i++) {
+                let originalAddressBits = [];
+                for (let j = 0; j < numAddressLines; j++) {
+                    if ((i >> j) & 1) {
+                        originalAddressBits.push(1);
+                    } else {
+                        originalAddressBits.push(0);
+                    }
+                }
+
+                let unscrambledAddress = 0;
+                for (let j = 0; j < numAddressLines; j++) {
+                    if (originalAddressBits[mapping[j]]) {
+                        unscrambledAddress |= (1 << j);
+                    }
+                }
+
+                if (unscrambledAddress < numBytes) {
+                    unscrambledByte1[unscrambledAddress] = file1Data[i];
+                    unscrambledByte2[unscrambledAddress] = file2Data[i];
+                    mergedRomData[unscrambledAddress] = (unscrambledByte2[unscrambledAddress] << 8) | unscrambledByte1[unscrambledAddress];
+                }
+            }
+
+            displayOutput();
+        }
+
+        function displayOutput() {
+            if (!mergedRomData) return;
+
+            const previewLength = Math.min(mergedRomData.length, 128);
+            let hexOutputText = "";
+            for (let i = 0; i < previewLength; i++) {
+                hexOutputText += mergedRomData[i].toString(16).padStart(4, '0') + (i % 8 === 7 ? '\n' : ' ');
+            }
+            if (mergedRomData.length > 128) {
+                hexOutputText += "\n... (rest of the data)";
+            }
+            document.getElementById('hexOutputText').value = hexOutputText;
+
+            let asciiOutputText = "";
+            for (let i = 0; i < mergedRomData.length; i++) { // Iterate through the entire mergedRomData
+                const word = mergedRomData[i];
+                const highByte = (word >> 8) & 0xFF;
+                const lowByte = word & 0xFF;
+
+                asciiOutputText += byteToAscii(highByte) + byteToAscii(lowByte);
+            }
+            document.getElementById('asciiOutputText').value = asciiOutputText;
+        }
+
+        function byteToAscii(byte) {
+            if (byte >= 32 && byte <= 126) {
+                return String.fromCharCode(byte);
+            } else {
+                return ".";
+            }
+        }
+
+        function downloadFile() {
+            if (!mergedRomData) {
+                alert("Please process and merge the ROM files first.");
+                return;
+            }
+
+            const byteArray = new Uint8Array(mergedRomData.length * 2);
+            const dataView = new DataView(byteArray.buffer);
+            for (let i = 0; i < mergedRomData.length; i++) {
+                dataView.setUint16(i * 2, mergedRomData[i], true);
+            }
+
+            const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = outputFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function randomizeAndProcess() {
+            if (!file1Data || !file2Data) {
+                alert("Please select both ROM files.");
+                return;
+            }
+
+            const numBytes = file1Data.length;
+            const numAddressLines = Math.ceil(Math.log2(numBytes));
+            const addressOrder = [];
+            for (let i = 0; i < numAddressLines; i++) {
+                addressOrder.push(i);
+            }
+
+            // Fisher-Yates shuffle algorithm
+            for (let i = numAddressLines - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [addressOrder[i], addressOrder[j]] = [addressOrder[j], addressOrder[i]];
+            }
+
+            document.getElementById('addressMapping').value = addressOrder.join(',');
+            processROMs();
+        }
+
+        function findCopyright() {
+            if (!file1Data || !file2Data) {
+                alert("Please select both ROM files.");
+                return;
+            }
+
+            const searchText = document.getElementById('searchText').value;
+            if (!searchText) {
+                alert("Please enter the text to search for.");
+                return;
+            }
+
+            if (isSearching) return; // Prevent multiple searches
+
+            isSearching = true;
+            findButton.disabled = true;
+            findButton.textContent = "Searching...";
+            feedbackElement.textContent = "Searching..."; // Initial feedback
+            permutationsSearched = 0;
+            progressBarFill.style.width = '0%';
+            progressBarLabel.textContent = '0 / ' + numPermutations;
+
+            const numBytes = file1Data.length;
+            const numAddressLines = Math.ceil(Math.log2(numBytes));
+            let addressOrder = [];
+            for (let i = 0; i < numAddressLines; i++) {
+                addressOrder.push(i);
+            }
+
+            let allMappings = generatePermutations(addressOrder);
+            numPermutations = allMappings.length;
+            progressBarLabel.textContent = '0 / ' + numPermutations;
+
+
+            intervalId = setInterval(() => {
+                if (permutationsSearched < allMappings.length) {
+                    document.getElementById('addressMapping').value = allMappings[permutationsSearched].join(',');
+                    processROMs();
+                    permutationsSearched++;
+                    const asciiText = document.getElementById('asciiOutputText').value.toUpperCase();
+                    if (asciiText.includes(searchText.toUpperCase())) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                        alert("Found it!");
+                        isSearching = false;
+                        findButton.disabled = false;
+                        findButton.textContent = "Find Text";
+                        feedbackElement.textContent = "";
+                        return; // Exit the function
+                    }
+                    let progress = (permutationsSearched / numPermutations) * 100;
+                    progressBarFill.style.width = progress + '%';
+                    progressBarLabel.textContent = permutationsSearched + ' / ' + numPermutations;
+                } else {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                    alert("Not found!");
+                    isSearching = false;
+                    findButton.disabled = false;
+                    findButton.textContent = "Find Text";
+                    feedbackElement.textContent = "";
+                }
+            }, 0);
+        }
+
+        function generatePermutations(arr) {
+            const permutations = [];
+            function permute(array, l, r) {
+                if (l === r) {
+                    permutations.push(array.slice()); // push a copy of the array
+                } else {
+                    for (let i = l; i <= r; i++) {
+                        [array[l], array[i]] = [array[i], array[l]]; // swap
+                        permute(array, l + 1, r);
+                        [array[l], array[i]] = [array[i], array[l]]; // backtrack
+                    }
+                }
+            }
+            permute(arr, 0, arr.length - 1);
+            return permutations;
+        }
+
+        window.onload = function() {
+            findButton = document.getElementById('findButton');
+            feedbackElement = document.getElementById('feedback');
+            progressBar = document.getElementById('progressBar');
+            progressBarFill = document.getElementById('progressBarFill');
+            progressBarLabel = document.getElementById('progressBarLabel');
+        };
+
+        document.getElementById('file1').addEventListener('change', () => {
+            if (file1Data && file2Data) {
+                calculatePermutations();
+            }
+        });
+
+        document.getElementById('file2').addEventListener('change', () => {
+            if (file1Data && file2Data) {
+                calculatePermutations();
+            }
+        });
+
+        function calculatePermutations() {
+            if (!file1Data || !file2Data) {
+                return;
+            }
+            const numBytes = file1Data.length;
+            const numAddressLines = Math.ceil(Math.log2(numBytes));
+            let result = 1;
+            for (let i = 1; i <= numAddressLines; i++) {
+                result *= i;
+            }
+            numPermutations = result;
+            progressBarLabel.textContent = '0 / ' + numPermutations;
+        }
+    </script>
+</body>
+</html>

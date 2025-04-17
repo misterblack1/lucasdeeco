@@ -55,7 +55,7 @@ The complete string is `COPYRIGHT (C) DIGITAL ELECTRONICS CORPORATION 1986` but 
 
 ## Descrambling the ROM
 
-Patron [Peter Tirsek](https://github.com/tirsek/lucasdeeco) has created a solution:
+Patron [Peter Tirsek](https://github.com/tirsek/lucasdeeco) has found a solution:
 
 >After a little trial and error, it looks like the "key" is pretty  straight forward. I ended up not numbering them the same way you did, 
  but the structure is probably pretty obvious:
@@ -77,4 +77,6 @@ Patron [Peter Tirsek](https://github.com/tirsek/lucasdeeco) has created a soluti
 >
 >At least this arrangement gives me something where all strings appear  readable, and the disassembled code looks plausible. I'll send an e-mail with the descrambled ROM.
 
-Peter [created a tool](https://github.com/misterblack1/lucasdeeco/tree/main/rom_descrambler) to descramble and scramble the ROM image. That means it is now possible to examine the code from the terminal but also make changes to it allosw you to run modified code on the real hardware. (Untested at this point)
+Peter [created a tool in C](https://github.com/misterblack1/lucasdeeco/tree/main/rom_descrambler) to descramble and scramble the ROM image. That means it is now possible to examine the code from the terminal but also make changes to it allosw you to run modified code on the real hardware. (Untested at this point)
+
+I used Google Gemini to make a version that runs in your browser. [Try it out](https://htmlpreview.github.io/?https://raw.githubusercontent.com/misterblack1/lucasdeeco/refs/heads/main/Lucas%20Deeco%20ROM%20(de)scrambler.html)

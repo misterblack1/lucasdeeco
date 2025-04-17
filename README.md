@@ -1,8 +1,8 @@
-## Lucas Deeco Terminal Information 
+## Lucas Deeco SealTouch ST3220 Terminal Information 
 
 High resolution photos and ROM dumps: [https://archive.org/details/lucas-deeco-seal-touch](https://archive.org/details/lucas-deeco-seal-touch)
 
-The Lucas Deeco terminal uses an Intel 80186 CPU with a full 16 bit data bus. The system contains a system ROM (64k) along with SRAM for system memory and EEPROMs for storing system settings and user data.
+The Lucas Deeco ST3220 terminal uses an Intel 80186 CPU with a full 16 bit data bus. The system contains a system ROM (64k) along with SRAM for system memory and EEPROMs for storing system settings and user data.
 
 Dumped system ROMs are scrambled on address lines A0-A6. A 18CV8PC-25 PAL sits between the CPU and the ROM/RAM address bus and appears to be there to allow the CPU to read a ROM with scrambled contents. It appears a PAL scrambles the data in 16 byte chunks. (32 bytes when you combine the two ROM HI/LOW files.) There appear to be 8 "keys" which are the different scrambled address line combinations, repeating every 256 bytes. See below:
 

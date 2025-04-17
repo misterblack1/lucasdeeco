@@ -2,9 +2,9 @@
 
 High resolution photos and ROM dumps: [https://archive.org/details/lucas-deeco-seal-touch](https://archive.org/details/lucas-deeco-seal-touch)
 
-CPU: 80186 with 16 bit data bus
+The Lucas Deeco terminal uses an Intel 80186 CPU with a full 16 bit data bus. The system contains a system ROM (64k) along with SRAM for system memory and EEPROMs for storing system settings and user data.
 
-Dumped ROMs are scrambled on address lines A0-A6. A 18CV8PC-25 PAL sits between the CPU and the ROM/RAM and appears to be there to allow the CPU to read a ROM with scrambled contents. It appears a PAL scrambles the data in 16 byte chunks. (32 bytes when you combine the two ROM HI/LOW files.) There appear to be 8 "keys" which are the different scrambled address line combinations, repeating every 256 bytes. See below:
+Dumped system ROMs are scrambled on address lines A0-A6. A 18CV8PC-25 PAL sits between the CPU and the ROM/RAM address bus and appears to be there to allow the CPU to read a ROM with scrambled contents. It appears a PAL scrambles the data in 16 byte chunks. (32 bytes when you combine the two ROM HI/LOW files.) There appear to be 8 "keys" which are the different scrambled address line combinations, repeating every 256 bytes. See below:
 
 ```
 CPU    74LS373             18CV8PC-25 ROM/RAM
@@ -53,8 +53,28 @@ A3,6,5,0,1,2,4 (next 32 bytes look correct)
 
 The complete string is `COPYRIGHT (C) DIGITAL ELECTRONICS CORPORATION 1986` but crosses the boundary so requires two keys to decode entirely.
 
-I have included two sample files extracted from the ROM on the 256 byte boundary, 128 byte selection HI.bin and 128 byte selection LO.bin. Run them through the included `bit swapper.html` program and search for `CONFIGURATION BY STATE MEMORY`. This will give you an example of human readable text that is now visible once descrambled. 
+## Descrambling the ROM
 
-Hitting the search button will result in all the combinations of address lines that decode that string you entered. (Scroll down once the search is done to see all matching combinations, click them to see the decoded data.)
+Patron [Peter Tirsek](https://github.com/tirsek/lucasdeeco) has created a solution:
 
-Note: The HTML/JS code was entirely made with Google Gemini.
+>After a little trial and error, it looks like the "key" is pretty  straight forward. I ended up not numbering them the same way you did, 
+ but the structure is probably pretty obvious:
+
+```
+# Output bit number
+#0, 1, 2,3, 4,5, 6, 7
+[0, 4, 6,7, 1,2, 3, 5], # <-- Input bit number
+[0, 4, 7,6, 1,2, 3, 5],
+[0, 4, 6,7, 2,1, 3, 5],
+[0, 4, 7,6, 2,1, 3, 5],
+[0, 3, 6,7, 1,2, 4, 5],
+[0, 3, 7,6, 1,2, 4, 5],
+[0, 3, 6,7, 2,1, 4, 5],
+[0, 3, 7,6, 2,1, 4, 5],
+```
+
+>As you said yourself, the "key" switches every 32 bytes and cycles after 8 keys or 256 bytes total.
+>
+>At least this arrangement gives me something where all strings appear  readable, and the disassembled code looks plausible. I'll send an e-mail with the descrambled ROM.
+
+Peter [created a tool](https://github.com/misterblack1/lucasdeeco/tree/main/rom_descrambler) to descramble and scramble the ROM image. That means it is now possible to examine the code from the terminal but also make changes to it allosw you to run modified code on the real hardware. (Untested at this point)

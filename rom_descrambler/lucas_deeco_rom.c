@@ -105,12 +105,15 @@ static void convert(const struct options *options)
 		for (int i=0; i<SIZE; i++) {
 			output_buffer[i] = input_buffer[options->lookup_table[i]];
 		}
+
 		n = write(STDOUT_FILENO, output_buffer, SIZE);
 		if (n < 0) {
 			fprintf(stderr, "write(): %s\n", strerror(errno));
+			exit(2);
 		}
 		if (n < SIZE) {
-			fprintf(stderr, "write(): Short write\n");
+			fputs("write(): Short write\n", stderr);
+			exit(2);
 		}
 	}
 }
